@@ -1,0 +1,298 @@
+#******************************************************************************
+# Привет!
+#
+# Меня зовут Роман Пионтик. Я задумал этот инструмент, чтобы сделать нашу
+# с тобой жизнь чуточку проще. Давай я тебе быстро все здесь покажу на примере
+# простой архитектуры.
+#******************************************************************************
+
+# Здесь можно подключить репозитории архитектуры
+imports:
+#  - https://dochub.info/documentation/root.yaml  # по прямой ссылке (попробуй раскомментировать и посмотри на результат)
+#  - foo.yaml                                     # или по относительному пути
+# dochub.welcome
+  - https://dochub.info/documentation/docs/conception/root.yaml 
+
+
+# Это аспекты. Аспекты - аналитические маркеры, позволяющие выделять
+# сегменты архитектуры. Кликни на лупе слева и посмотри как они помогают
+# найти то, что нужно.
+aspects:
+  auth:                       # Идентификатор аспекта
+    title: Автризация         # Название
+    location: Авторизация     # Размещение в меню
+  goods:
+    title: Покупка товара
+    location: Покупка товара
+  goods.order:                # Структурированные идентификаторы аспектов определяют их иерархию
+    title: Заказ товара
+    location: Покупка товара/Заказ
+  goods.payment:
+    title: Оплата товара
+    location: Покупка товара/Оплата
+
+# Архитектурные компоненты. Из них строится ИТ архитектура.
+components:
+
+  # Компоненты верхнего уровня (L1 C4Model)
+  user:                       # Идентификатор компонента
+    title: Пользователь       # Название
+    entity: actor             # Представление на схеме
+    links:                    # Компоненты с которым происходит взаимодействие
+      - id: as_market            # Идентификатор компонента
+        direction: <-->       # Направление взаимодействия (<-- | -- | --> | <-->)
+        title: Покупка        # Смысл взаимодействия
+  
+  as_market:
+    title: ИС Mаrket
+    entity: collections
+    aspects:                  # Аспекты, которые реализует компонент
+      - auth
+      - goods
+  
+  # ИБшные системы
+  ib:
+    title: АС ИБ
+    entity: collections    
+
+
+  # Внутренняя архитектура компонентов верхнего уровня (L2 C4Model)
+  as_market.gateway:             # Иерархия компонентов определяется структурой их идентификаторов
+    title: API шлюз
+    entity: component
+    links:
+      - id: as_market.backend
+        title: Бизнес API
+        direction: <-->
+        contract: https://editor.swagger.io/  # Можно указать контракт взаимодействия внешней ссылкой
+      - id: as_market.auth
+        title: Auth API
+        direction: <-->
+        contract: example                     # Или, контракт можно указывать идентификатором документа
+    technologies:             # Технологии используемые в компоненте
+      - HTTP
+      - OAuth
+  
+  as_market.backend:
+    title: Бэкенд
+    entity: component
+    links:
+      - id: as_market.db
+        direction: <-->
+    aspects:
+      - goods.order
+      - goods.payment
+    technologies:
+      - PHP
+      - Laravel
+
+  # Детальная архитектура бэкенда (L3 C4Model)
+  as_market.backend.monitoring:
+    title: Prometheus exporter
+    entity: component
+    links:
+      - id: as_market.db.tsdb
+        direction: <-->
+    
+  as_market.backend.core:
+    title: Ядро
+    entity: component
+    links:
+      - id: as_market.backend.monitoring
+        direction: ->
+        title: Предоставление метрик
+      - id: as_market.backend.log
+        direction: ->
+        title: Протоколирование работы
+  
+  as_market.backend.log:
+    title: Подсистема логирования
+    entity: component
+  
+  
+  as_market.backend.business:
+    title: Бизнес-логика
+    entity: component
+
+  as_market.auth:
+    title: Авторизация
+    entity: component
+    aspects:
+      - auth
+    links:
+      - id: as_market.db
+        direction: <-->
+    technologies:
+      - Go
+      - OAuth
+
+  as_market.db:
+    title: Datalake
+    entity: database
+ 
+  as_market.db.business:
+    title: Данные
+    entity: database
+    technologies:
+      - PostgreSQL
+  
+  as_market.db.tsdb:
+    title: Данные мониторинга
+    entity: database
+    technologies:
+      - PostgreSQL
+      - TSDB
+
+  as_market.db.users:
+    title: Пользователи
+    entity: database
+    technologies:
+      - PostgreSQL
+
+
+        
+  # АС СВОИ :)
+  ib.arcsight:                     # Архитектура системы (L2 C4Model)
+      title: Аудит безопасности
+      location: ИБ/СВОИ
+      entity: component
+      components:
+        - ib.arcsight.*
+
+
+  ib.arcsight.agent:                     # Архитектура системы (L2 C4Model)
+      title: Агент сбора логов аудита
+      location: ИБ/СВОИ
+      entity: component
+      links:
+        - id: ib.arcsight.db
+          title: загрузка данных
+          direction: ->   
+          tech-stack:
+            - JDBC
+        - id: as_market.backend.log
+          direction: <-[#orange]
+          title: Сбор логов аудита
+          tech-stack:
+            - HTTPS
+      document: example
+          
+  ib.arcsight.db:                     # Архитектура системы (L2 C4Model)
+      title: БД логов аудита
+      location: ИБ/СВОИ
+      entity: database
+      technologies:
+        - PostgreSQL
+
+# Диаграммы представлений
+contexts:
+  overview:                   # Схема верхнего уровня представления (L1 C4Model)
+    title: Обзор ИС Mаrket            # Название диаграммы
+    location: ИС Mаrket          # Размещение диаграммы в меню
+    components:               # Компоненты, которые входят в диаграмму
+      - as_market                # В данной диаграмме будет только один компонент
+      - user
+
+  bay:
+    title: Покупки
+    location: ИС Mаrket/Покупки
+    components:
+      - user
+      - as_market.*
+
+  as_market:                     # Архитектура системы (L2 C4Model)
+    title: Устройство системы
+    location: ИС Mаrket/Система
+    components:
+      - as_market.*              # Можно указать wildcard включаемых компонентов в диаграмму
+
+  as_market.backend:             # Архитектура бэкенда (L3 C4Model)
+    title: Устройство бэкенда
+    location: ИС Mаrket/Система/Бэкенд
+    components:
+      - as_market.backend.*
+
+  ib:
+    title: Информационная безопасность
+    location: ИБ
+    components:
+      - ib.arcsight.*
+      - as_market.*.log
+      - as_market.backend.*
+  
+
+
+# Документы
+docs:
+  example:
+    location: Пример документа  # Размещение в меню
+    # Ссылка может быть как на внешний ресурс, так на файл по относительному пути
+    source: https://dochub.info/documentation/docs/manual/docs/examples/example.yaml
+    type: openapi               # Тип документа (OpenApi | Markdown | PlantUML | Table)
+
+  ADR1:
+    location: ADR/ADR Database  # Размещение в меню
+    # Ссылка может быть как на внешний ресурс, так на файл по относительному пути
+    type: Markdown 
+    source: adr1.md
+    subjects:
+      - auth
+
+# Описание технологического стека
+technologies:
+  sections:                           # Определение разделов стека
+    language:                         # Идентификатор раздела
+      title: Языки программирования   # Название раздела
+    frameforks:
+      title: Фреймворки
+    databaeses:
+      title: Базы данных
+    storages:
+      title: Хранилища
+    protocols:
+      title: Протоколы
+  items:                              # Перечисление технологий
+    PHP:                              # Идентификатор технологии
+      aliases:                        # Синонимы технологии
+        - пыха
+      title: Супер-крутой язык программирования   # Название технологии
+      link: https://www.php.net/                  # Ссылка на документацию
+      section: language               # Идентификатор секции технологии
+      status: adopt                   # Статус технологии adopt / trial / assess / hold
+    Go:
+      title: Go
+      link: https://go.dev/
+      section: language
+      status: trial
+    Laravel:
+      title: Laravel
+      link: https://laravel.ru/
+      section: frameforks
+      status: trial
+    PostgreSQL:
+      title: PostgreSQL
+      link: https://www.postgresql.org/
+      section: databaeses
+      status: assess
+    HTTP:
+      title: HTTP
+      link: https://ru.wikipedia.org/wiki/HTTP
+      section: protocols
+      status: adopt
+    OAuth:
+      title: OAuth
+      link: https://ru.wikipedia.org/wiki/OAuth
+      section: protocols
+      status: adopt
+    TSDB:
+      title: TimeScale DB
+      link: https://bigdataschool.ru/blog/tsdb-what-is-time-series-database.html
+      section: databaeses
+      status: adopt
+
+#******************************************************************************
+#                          Теперь ты почти все знаешь!
+#                    подробности на сайте https://dochub.info
+#    Если появятся вопросы, нужна будет помощь или ты захочешь сделать свой
+#           вклад в проект иди сюда - https://github.com/RabotaRu/DocHub
+#******************************************************************************
